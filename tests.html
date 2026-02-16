@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>parseAbcFile — Unit Tests</title>
+<title>chordABC — Unit Tests</title>
 <style>
   body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
   .pass { color: #66bb6a; }
@@ -13,7 +13,7 @@
 </style>
 </head>
 <body>
-<h1>parseAbcFile — Unit Tests</h1>
+<h1>chordABC — Unit Tests</h1>
 <div id="results"></div>
 
 <script>
@@ -80,7 +80,7 @@ function eq(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-// --- Tests ---
+// --- parseAbcFile tests ---
 
 // 1. Valid minimal file (header only, no body)
 (function() {
@@ -221,6 +221,115 @@ function eq(a, b) {
   assert(r && eq(r.tokens, bodyTokens),
     "Roundtrip tokens match",
     "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// --- readableToMidi tests ---
+// Copy of readableToMidi (pure function, no DOM dependencies)
+var NOTE_NAME_TO_SEMI = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+
+function readableToMidi(str) {
+  var m = str.match(/^([A-G])(#|b)?(\d)$/);
+  if (!m) return null;
+  var letter = m[1];
+  var acc = m[2] || "";
+  var octave = parseInt(m[3]);
+  var semi = NOTE_NAME_TO_SEMI[letter];
+  if (semi === undefined) return null;
+  if (acc === "#") semi += 1;
+  else if (acc === "b") semi -= 1;
+  return (octave + 1) * 12 + ((semi % 12 + 12) % 12);
+}
+
+// 17. Natural notes
+(function() {
+  assert(readableToMidi("C4") === 60, "C4 = MIDI 60", "got: " + readableToMidi("C4"));
+  assert(readableToMidi("A4") === 69, "A4 = MIDI 69", "got: " + readableToMidi("A4"));
+  assert(readableToMidi("C1") === 24, "C1 = MIDI 24", "got: " + readableToMidi("C1"));
+  assert(readableToMidi("B5") === 83, "B5 = MIDI 83", "got: " + readableToMidi("B5"));
+})();
+
+// 18. Sharps
+(function() {
+  assert(readableToMidi("F#3") === 54, "F#3 = MIDI 54", "got: " + readableToMidi("F#3"));
+  assert(readableToMidi("C#4") === 61, "C#4 = MIDI 61", "got: " + readableToMidi("C#4"));
+})();
+
+// 19. Flats
+(function() {
+  assert(readableToMidi("Bb3") === 58, "Bb3 = MIDI 58", "got: " + readableToMidi("Bb3"));
+  assert(readableToMidi("Db4") === 61, "Db4 = MIDI 61 (enharmonic with C#4)", "got: " + readableToMidi("Db4"));
+  assert(readableToMidi("Ab4") === 68, "Ab4 = MIDI 68", "got: " + readableToMidi("Ab4"));
+})();
+
+// 20. Invalid inputs
+(function() {
+  assert(readableToMidi("") === null, "Empty string returns null");
+  assert(readableToMidi("H4") === null, "Invalid letter returns null");
+  assert(readableToMidi("C") === null, "Missing octave returns null");
+  assert(readableToMidi("C##4") === null, "Double sharp returns null");
+  assert(readableToMidi("hello") === null, "Nonsense returns null");
+})();
+
+// 22. Roundtrip: token comment parsing (simulates undo restore)
+(function() {
+  var token = '"Cmaj"[CEG] % C4 E4 G4';
+  var commentIdx = token.indexOf("%");
+  var noteStrs = token.slice(commentIdx + 1).trim().split(/\s+/);
+  var midis = noteStrs.map(readableToMidi).filter(function(m) { return m !== null; });
+  assert(eq(midis, [60, 64, 67]),
+    "Token comment round-trips to correct MIDI values",
+    "got: " + JSON.stringify(midis));
+})();
+
+// 23. Roundtrip with flats in comment
+(function() {
+  var token = '"Abmaj"[_A,C,_E] % Ab3 C4 Eb4';
+  var commentIdx = token.indexOf("%");
+  var noteStrs = token.slice(commentIdx + 1).trim().split(/\s+/);
+  var midis = noteStrs.map(readableToMidi).filter(function(m) { return m !== null; });
+  assert(eq(midis, [56, 60, 63]),
+    "Flat token comment round-trips to correct MIDI values",
+    "got: " + JSON.stringify(midis));
+})();
+
+// --- nearestSample tests ---
+var SAMPLE_MIDS = [36, 48, 60, 72, 84, 96];
+
+function nearestSample(midi) {
+  var best = SAMPLE_MIDS[0];
+  var bestDist = Math.abs(midi - best);
+  for (var i = 0; i < SAMPLE_MIDS.length; i++) {
+    var d = Math.abs(midi - SAMPLE_MIDS[i]);
+    if (d < bestDist) { best = SAMPLE_MIDS[i]; bestDist = d; }
+  }
+  return best;
+}
+
+// 24. Exact sample hits
+(function() {
+  assert(nearestSample(60) === 60, "C4 (60) maps to C4 sample", "got: " + nearestSample(60));
+  assert(nearestSample(36) === 36, "C2 (36) maps to C2 sample", "got: " + nearestSample(36));
+  assert(nearestSample(96) === 96, "C7 (96) maps to C7 sample", "got: " + nearestSample(96));
+})();
+
+// 25. Notes between samples pick the nearest
+(function() {
+  assert(nearestSample(64) === 60, "E4 (64) maps to C4 sample (60)", "got: " + nearestSample(64));
+  assert(nearestSample(55) === 60, "G3 (55) maps to C4 sample (60)", "got: " + nearestSample(55));
+  assert(nearestSample(65) === 60, "F4 (65) maps to C4 sample (60)", "got: " + nearestSample(65));
+  assert(nearestSample(66) === 60, "F#4 (66) equidistant, maps to C4 sample (60)", "got: " + nearestSample(66));
+  assert(nearestSample(67) === 72, "G4 (67) maps to C5 sample (72)", "got: " + nearestSample(67));
+})();
+
+// 26. Notes below lowest sample
+(function() {
+  assert(nearestSample(24) === 36, "C1 (24) maps to C2 sample (36)", "got: " + nearestSample(24));
+  assert(nearestSample(30) === 36, "F#1 (30) maps to C2 sample (36)", "got: " + nearestSample(30));
+})();
+
+// 27. Notes above highest sample
+(function() {
+  assert(nearestSample(100) === 96, "E7 (100) maps to C7 sample (96)", "got: " + nearestSample(100));
 })();
 
 // --- Summary ---
