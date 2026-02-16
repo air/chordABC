@@ -11,7 +11,7 @@ Open `index.html` in any browser. No build step, no dependencies (abcjs is loade
 3. Press **Spacebar** to replay the current chord at any time
 4. The chord name appears live as you select notes (e.g. "Cmaj", "Abmin / G#min")
 5. Click **Add this chord** to append the selected notes as ABC notation
-6. Use **Undo** or **Clear All** as needed
+6. Use **Clear keys** to deselect all keys, **Undo** or **Clear all** as needed
 7. **Undo** restores the removed chord's notes back onto the keyboard
 8. Click a line in the textarea to preview it — keys light up yellow and the chord plays
 9. While previewing, click keys to edit that chord in-place (add/remove notes)
@@ -75,12 +75,14 @@ The tool makes opinionated choices about sharp vs flat spelling to match what mu
 - Chord name shown live above the keyboard as notes are selected
 
 ### Audio
-- Web Audio API: `OscillatorNode` with triangle wave
-- Exponential gain decay over ~1.2s
-- Frequency from MIDI: `440 * 2^((midi - 69) / 12)`
+- Web Audio API with [Salamander Grand Piano](https://sfzinstruments.github.io/pianos/salamander/) samples (C2–C7)
+- Samples are pre-fetched on page load and decoded on first user interaction
+- Notes between sample points are pitch-shifted using `AudioBufferSourceNode.detune`
+- Exponential gain decay over ~2s
 - Selecting a note replays all selected notes together (volume scaled by `1/sqrt(n)` to prevent clipping)
 - Deselecting a note is silent
 - Spacebar replays the current chord on demand (disabled when textarea is focused)
+- Thanks to [gregjopa.com](https://www.gregjopa.com/) for the pointers on piano sample playback with Web Audio API
 
 ### Rendered Staff
 - Uses [abcjs](https://www.abcjs.net/) loaded from CDN to render ABC notation as SVG
@@ -103,7 +105,7 @@ The tool makes opinionated choices about sharp vs flat spelling to match what mu
 ### Token System
 - The ABC output is managed as a header string + array of tokens
 - Undo removes the last token and restores its notes onto the keyboard
-- Clear All empties the token array and resets the header
+- Clear all empties the token array and resets the header
 - Header is pre-populated: `X:1`, `T:Untitled`, `M:4/4`, `L:1/4`, `K:C`
 
 ### MIDI Numbering

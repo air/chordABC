@@ -368,7 +368,8 @@
 <div class="controls">
   <button class="primary" id="btnAddChord" disabled>Add this chord</button>
   <button id="btnUndo" disabled>Undo</button>
-  <button class="danger" id="btnClear">Clear All</button>
+  <button id="btnClearKeys" disabled>Clear keys</button>
+  <button class="danger" id="btnClear">Clear all</button>
 </div>
 
 <div class="output-section">
@@ -493,31 +494,78 @@ K:C
   // --- Audio ---
   let audioCtx = null;
 
+  const SAMPLE_MIDS = [36, 48, 60, 72, 84, 96]; // C2, C3, C4, C5, C6, C7
+  const SAMPLE_FILES = {
+    36: "mp3/public_audio_C2v10.mp3",
+    48: "mp3/public_audio_C3v10.mp3",
+    60: "mp3/public_audio_C4v10.mp3",
+    72: "mp3/public_audio_C5v10.mp3",
+    84: "mp3/public_audio_C6v10.mp3",
+    96: "mp3/public_audio_C7v10.mp3",
+  };
+  const sampleBuffers = {}; // midi -> AudioBuffer
+  let samplesLoaded = false;
+  let samplesReady = null; // Promise, resolved once all samples are decoded
+
+  // Pre-fetch mp3 data immediately on page load (no AudioContext needed)
+  const rawSampleData = {};
+  for (const midi of SAMPLE_MIDS) {
+    rawSampleData[midi] = fetch(SAMPLE_FILES[midi]).then(r => r.arrayBuffer());
+  }
+
+  async function decodeSamples() {
+    await Promise.all(SAMPLE_MIDS.map(async (midi) => {
+      const buf = await rawSampleData[midi];
+      sampleBuffers[midi] = await audioCtx.decodeAudioData(buf);
+    }));
+    samplesLoaded = true;
+  }
+
   function ensureAudioCtx() {
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (!audioCtx) {
+      audioCtx = new AudioContext();
+      samplesReady = decodeSamples();
+    }
     return audioCtx;
+  }
+
+  function nearestSample(midi) {
+    let best = SAMPLE_MIDS[0];
+    let bestDist = Math.abs(midi - best);
+    for (const s of SAMPLE_MIDS) {
+      const d = Math.abs(midi - s);
+      if (d < bestDist) { best = s; bestDist = d; }
+    }
+    return best;
+  }
+
+  function playSample(ctx, midi, count) {
+    const sampleMidi = nearestSample(midi);
+    const detune = (midi - sampleMidi) * 100; // cents
+
+    const source = ctx.createBufferSource();
+    source.buffer = sampleBuffers[sampleMidi];
+    source.detune.value = detune;
+
+    const gain = ctx.createGain();
+    const vol = count > 1 ? 0.2 / Math.sqrt(count) : 0.3;
+    gain.gain.setValueAtTime(vol, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 2.0);
+
+    source.connect(gain);
+    gain.connect(ctx.destination);
+    source.start();
   }
 
   function playTone(midi, count) {
     count = count || 1;
     const ctx = ensureAudioCtx();
-    const freq = 440 * Math.pow(2, (midi - 69) / 12);
 
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = "triangle";
-    osc.frequency.value = freq;
-
-    const vol = count > 1 ? 0.2 / Math.sqrt(count) : 0.3;
-    gain.gain.setValueAtTime(vol, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 1.2);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(ctx.currentTime);
-    osc.stop(ctx.currentTime + 1.3);
+    if (samplesLoaded) {
+      playSample(ctx, midi, count);
+    } else {
+      samplesReady.then(() => playSample(ctx, midi, count));
+    }
   }
 
   // --- Key toggle ---
@@ -543,9 +591,11 @@ K:C
 
   const chordNameEl = document.getElementById("chordName");
   const btnAddChord = document.getElementById("btnAddChord");
+  const btnClearKeys = document.getElementById("btnClearKeys");
 
   function syncAddButton() {
     btnAddChord.disabled = selectedMidi.size === 0 || editingTokenIndex !== null;
+    btnClearKeys.disabled = selectedMidi.size === 0;
   }
 
   const selectedLabelEl = document.getElementById("selectedLabel");
@@ -879,6 +929,7 @@ K:C
       editingTokenIndex = null;
       pianoEl.querySelectorAll(".key.preview").forEach(el => el.classList.remove("preview"));
       syncOutput();
+      syncAddButton();
       return;
     }
 
@@ -905,7 +956,9 @@ K:C
     clearSelection();
   });
 
-
+  btnClearKeys.addEventListener("click", () => {
+    clearSelection();
+  });
 
   document.getElementById("btnUndo").addEventListener("click", () => {
     if (tokens.length > 0) {
