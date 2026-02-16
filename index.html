@@ -226,6 +226,26 @@
     display: none;
   }
 
+  .nav-arrow {
+    position: absolute;
+    right: 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #4fc3f7;
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.45;
+    z-index: 3;
+    user-select: none;
+    background: rgba(13, 27, 42, 0.85);
+    border-radius: 3px;
+    padding: 0 4px;
+  }
+  .nav-arrow:hover {
+    opacity: 1;
+  }
+
   .output-left label {
     font-size: 0.8rem;
     color: #888;
@@ -799,6 +819,7 @@ K:C
     }).join("\n");
     highlightEl.innerHTML = html;
     highlightEl.scrollTop = abcOutput.scrollTop;
+    updateNavArrows();
   }
 
   const btnUndo = document.getElementById("btnUndo");
@@ -1052,11 +1073,11 @@ K:C
     const lineHeight = parseFloat(getComputedStyle(abcOutput).lineHeight) || 20;
     const pad = parseFloat(getComputedStyle(abcOutput).paddingTop) || 0;
     const lineTop = pad + targetLine * lineHeight;
-    const bottomEdge = lineTop + (1 + extraLines) * lineHeight;
+    const bottomEdge = lineTop + (2 + extraLines) * lineHeight;
     const visibleTop = abcOutput.scrollTop;
     const visibleBottom = visibleTop + abcOutput.clientHeight;
     if (lineTop < visibleTop) {
-      abcOutput.scrollTop = lineTop - pad;
+      abcOutput.scrollTop = Math.max(0, lineTop - lineHeight - pad);
     } else if (bottomEdge > visibleBottom) {
       abcOutput.scrollTop = bottomEdge - abcOutput.clientHeight + pad;
     }
@@ -1103,6 +1124,91 @@ K:C
   lineHoverEl.className = "line-hover";
   abcOutput.parentElement.appendChild(lineHoverEl);
 
+  // --- Navigation arrows ---
+  const arrowUp = document.createElement("div");
+  arrowUp.className = "nav-arrow";
+  arrowUp.textContent = "▲";
+  const arrowDown = document.createElement("div");
+  arrowDown.className = "nav-arrow";
+  arrowDown.textContent = "▼";
+  abcOutput.parentElement.appendChild(arrowUp);
+  abcOutput.parentElement.appendChild(arrowDown);
+
+  function navigateChord(dir) {
+    if (editingTokenIndex === null) return;
+    let target = editingTokenIndex + dir;
+    while (target >= 0 && target < tokens.length && !isChordToken(target)) {
+      target += dir;
+    }
+    if (target < 0 || target >= tokens.length) return;
+    moveCursorToToken(target);
+    previewLine(tokens[target], target);
+  }
+
+  function updateNavArrows() {
+    if (editingTokenIndex === null) {
+      arrowUp.style.display = "none";
+      arrowDown.style.display = "none";
+      return;
+    }
+
+    const cs = getComputedStyle(abcOutput);
+    const lineHeight = parseFloat(cs.lineHeight) || 20;
+    const padTop = parseFloat(cs.paddingTop) || 0;
+    const borderTop = parseFloat(cs.borderTopWidth) || 0;
+    const headerLineCount = (HEADER.match(/\n/g) || []).length;
+    const selectedLineNum = headerLineCount + editingTokenIndex;
+
+    let hasPrev = false;
+    for (let i = editingTokenIndex - 1; i >= 0; i--) {
+      if (isChordToken(i)) { hasPrev = true; break; }
+    }
+    let hasNext = false;
+    for (let i = editingTokenIndex + 1; i < tokens.length; i++) {
+      if (isChordToken(i)) { hasNext = true; break; }
+    }
+
+    // Up arrow — line above selected
+    if (hasPrev) {
+      const y = padTop + (selectedLineNum - 1) * lineHeight - abcOutput.scrollTop;
+      if (y >= 0 && y + lineHeight <= abcOutput.clientHeight) {
+        arrowUp.style.display = "flex";
+        arrowUp.style.top = (borderTop + y) + "px";
+        arrowUp.style.height = lineHeight + "px";
+      } else {
+        arrowUp.style.display = "none";
+      }
+    } else {
+      arrowUp.style.display = "none";
+    }
+
+    // Down arrow — line below selected
+    if (hasNext) {
+      const y = padTop + (selectedLineNum + 1) * lineHeight - abcOutput.scrollTop;
+      if (y >= 0 && y + lineHeight <= abcOutput.clientHeight) {
+        arrowDown.style.display = "flex";
+        arrowDown.style.top = (borderTop + y) + "px";
+        arrowDown.style.height = lineHeight + "px";
+      } else {
+        arrowDown.style.display = "none";
+      }
+    } else {
+      arrowDown.style.display = "none";
+    }
+  }
+
+  arrowUp.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigateChord(-1);
+  });
+
+  arrowDown.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigateChord(1);
+  });
+
   abcOutput.addEventListener("mousemove", (e) => {
     const cs = getComputedStyle(abcOutput);
     const lineHeight = parseFloat(cs.lineHeight) || 20;
@@ -1145,6 +1251,7 @@ K:C
   abcOutput.addEventListener("scroll", () => {
     lineHoverEl.style.display = "none";
     highlightEl.scrollTop = abcOutput.scrollTop;
+    updateNavArrows();
   });
 
   // Clear preview when clicking anywhere outside the textarea
