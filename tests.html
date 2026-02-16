@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>parseAbcFile — Unit Tests</title>
+<style>
+  body { font-family: monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+  .pass { color: #66bb6a; }
+  .fail { color: #ef5350; font-weight: bold; }
+  h1 { font-size: 1.2rem; margin-bottom: 12px; }
+  .summary { margin-top: 16px; font-size: 1rem; padding: 8px; border-top: 1px solid #444; }
+  pre { margin: 2px 0 8px 24px; color: #999; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<h1>parseAbcFile — Unit Tests</h1>
+<div id="results"></div>
+
+<script>
+// --- Copy of parseAbcFile (pure function, no DOM dependencies) ---
+function parseAbcFile(content) {
+  var lines = content.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+
+  while (lines.length > 0 && lines[lines.length - 1] === "") {
+    lines.pop();
+  }
+
+  if (lines.length === 0) return null;
+
+  if (!/^X:\s*\d/.test(lines[0])) return null;
+
+  var kLineIdx = -1;
+  for (var i = 0; i < lines.length; i++) {
+    if (/^K:/.test(lines[i])) {
+      kLineIdx = i;
+      break;
+    }
+  }
+  if (kLineIdx === -1) return null;
+
+  for (var j = 0; j <= kLineIdx; j++) {
+    if (!/^[A-Za-z]:/.test(lines[j])) return null;
+  }
+
+  var header = lines.slice(0, kLineIdx + 1).join("\n") + "\n";
+  var bodyLines = lines.slice(kLineIdx + 1);
+
+  while (bodyLines.length > 0 && bodyLines[bodyLines.length - 1] === "") {
+    bodyLines.pop();
+  }
+
+  return { header: header, tokens: bodyLines };
+}
+
+// --- Test harness ---
+var passed = 0;
+var failed = 0;
+var resultsEl = document.getElementById("results");
+
+function assert(condition, name, detail) {
+  var div = document.createElement("div");
+  if (condition) {
+    passed++;
+    div.className = "pass";
+    div.textContent = "PASS: " + name;
+  } else {
+    failed++;
+    div.className = "fail";
+    div.textContent = "FAIL: " + name;
+    if (detail) {
+      var pre = document.createElement("pre");
+      pre.textContent = detail;
+      div.appendChild(pre);
+    }
+  }
+  resultsEl.appendChild(div);
+}
+
+function eq(a, b) {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+// --- Tests ---
+
+// 1. Valid minimal file (header only, no body)
+(function() {
+  var input = "X:1\nT:Untitled\nM:4/4\nL:1/4\nK:C\n";
+  var r = parseAbcFile(input);
+  assert(r !== null, "Valid minimal file is accepted");
+  assert(r && r.header === "X:1\nT:Untitled\nM:4/4\nL:1/4\nK:C\n",
+    "Minimal file header is preserved",
+    "got: " + (r && r.header));
+  assert(r && eq(r.tokens, []),
+    "Minimal file has empty token list",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 2. Valid file with chord tokens
+(function() {
+  var input = "X:1\nT:Test\nM:4/4\nL:1/4\nK:C\n[CEG] % C4 E4 G4\n| \n[FAC] % F4 A4 C5\n";
+  var r = parseAbcFile(input);
+  assert(r !== null, "File with chords is accepted");
+  assert(r && eq(r.tokens, ["[CEG] % C4 E4 G4", "| ", "[FAC] % F4 A4 C5"]),
+    "Chord tokens are correctly extracted",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 3. Empty string
+(function() {
+  assert(parseAbcFile("") === null, "Empty string is rejected");
+})();
+
+// 4. No header at all
+(function() {
+  assert(parseAbcFile("[CEG] % C4 E4 G4\n") === null,
+    "File with no header is rejected");
+})();
+
+// 5. Missing K: line
+(function() {
+  assert(parseAbcFile("X:1\nT:Test\nM:4/4\nL:1/4\n") === null,
+    "File without K: line is rejected");
+})();
+
+// 6. Missing X: as first line
+(function() {
+  assert(parseAbcFile("T:Test\nM:4/4\nL:1/4\nK:C\n") === null,
+    "File not starting with X: is rejected");
+})();
+
+// 7. Blank line in header
+(function() {
+  assert(parseAbcFile("X:1\nT:Test\n\nM:4/4\nL:1/4\nK:C\n") === null,
+    "Blank line in header is rejected");
+})();
+
+// 8. Non-field line in header
+(function() {
+  assert(parseAbcFile("X:1\nT:Test\nsome junk\nM:4/4\nL:1/4\nK:C\n") === null,
+    "Non-field line in header is rejected");
+})();
+
+// 9. Windows line endings (\r\n)
+(function() {
+  var input = "X:1\r\nT:Test\r\nM:4/4\r\nL:1/4\r\nK:C\r\n[CEG] % C4 E4 G4\r\n";
+  var r = parseAbcFile(input);
+  assert(r !== null, "Windows line endings (\\r\\n) are accepted");
+  assert(r && eq(r.tokens, ["[CEG] % C4 E4 G4"]),
+    "Tokens parsed correctly with Windows line endings",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 10. Old Mac line endings (\r)
+(function() {
+  var input = "X:1\rT:Test\rM:4/4\rL:1/4\rK:C\r[CEG] % C4 E4 G4\r";
+  var r = parseAbcFile(input);
+  assert(r !== null, "Old Mac line endings (\\r) are accepted");
+  assert(r && eq(r.tokens, ["[CEG] % C4 E4 G4"]),
+    "Tokens parsed correctly with old Mac line endings",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 11. Trailing empty lines in body are stripped
+(function() {
+  var input = "X:1\nT:Test\nM:4/4\nL:1/4\nK:C\n[CEG] % C4 E4 G4\n\n\n";
+  var r = parseAbcFile(input);
+  assert(r !== null && eq(r.tokens, ["[CEG] % C4 E4 G4"]),
+    "Trailing empty lines in body are stripped",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 12. Extra header fields (e.g., C: composer) are preserved
+(function() {
+  var input = "X:1\nT:My Song\nC:Bach\nM:3/4\nL:1/8\nK:G\nABC\n";
+  var r = parseAbcFile(input);
+  assert(r !== null, "Extra header fields are accepted");
+  assert(r && r.header === "X:1\nT:My Song\nC:Bach\nM:3/4\nL:1/8\nK:G\n",
+    "Extra header fields are preserved in header string",
+    "got: " + (r && r.header));
+  assert(r && eq(r.tokens, ["ABC"]),
+    "Body after extended header is correct",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 13. X: line must have a number
+(function() {
+  assert(parseAbcFile("X:\nT:Test\nK:C\n") === null,
+    "X: without a number is rejected");
+})();
+
+// 14. Body with empty lines (new-line tokens) preserved
+(function() {
+  var input = "X:1\nT:Test\nM:4/4\nL:1/4\nK:C\n[CEG] % C4 E4 G4\n\n[FAC] % F4 A4 C5\n";
+  var r = parseAbcFile(input);
+  assert(r !== null, "Body with interior empty lines is accepted");
+  assert(r && eq(r.tokens, ["[CEG] % C4 E4 G4", "", "[FAC] % F4 A4 C5"]),
+    "Interior empty lines are preserved as empty tokens",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 15. Header-only file with no trailing newline
+(function() {
+  var input = "X:1\nT:Test\nM:4/4\nL:1/4\nK:C";
+  var r = parseAbcFile(input);
+  assert(r !== null, "Header-only file without trailing newline is accepted");
+  assert(r && eq(r.tokens, []),
+    "No tokens for header-only file",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// 16. Roundtrip: download then load should produce same output
+(function() {
+  var header = "X:1\nT:Untitled\nM:4/4\nL:1/4\nK:C\n";
+  var bodyTokens = ['"Cmaj"[CEG] % C4 E4 G4', "|", '"Fmaj"[FAc] % F4 A4 C5'];
+  var fileContent = header + bodyTokens.join("\n");
+  var r = parseAbcFile(fileContent);
+  assert(r !== null, "Roundtrip file is accepted");
+  assert(r && r.header === header,
+    "Roundtrip header matches",
+    "got: " + (r && r.header));
+  assert(r && eq(r.tokens, bodyTokens),
+    "Roundtrip tokens match",
+    "got: " + JSON.stringify(r && r.tokens));
+})();
+
+// --- Summary ---
+var summary = document.createElement("div");
+summary.className = "summary " + (failed === 0 ? "pass" : "fail");
+summary.textContent = passed + " passed, " + failed + " failed";
+resultsEl.appendChild(summary);
+</script>
+</body>
+</html>
