@@ -177,3 +177,15 @@ title should be chordABC
 ---
 
 do you have a record of all prompts i issued since the beginning?
+
+2026-02-21 10:11 whats in CLAUDE.md
+
+2026-02-21 10:11 what hooks are there
+
+2026-02-21 10:11 what was the sessionstart hook failure
+
+2026-02-21 10:13 let's break out the js and css into files
+
+2026-02-21 10:16 if i move app.js to typescript, does that mean i need a build step before i can run it?
+
+2026-02-21 10:17 update the README as needed and then commit all this
