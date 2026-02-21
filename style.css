@@ -1,0 +1,343 @@
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: #1a1a2e;
+    color: #e0e0e0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 4px;
+    color: #fff;
+  }
+
+  .subtitle {
+    font-size: 0.85rem;
+    color: #888;
+    margin-bottom: 18px;
+  }
+
+  /* Selected notes display */
+  .selected-display {
+    background: #16213e;
+    border: 1px solid #334;
+    border-radius: 6px;
+    padding: 8px 16px;
+    height: 40px;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    min-width: 300px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .selected-display .label {
+    color: #888;
+    font-size: 0.8rem;
+  }
+
+  .selected-display .notes {
+    color: #4fc3f7;
+    font-weight: 600;
+    letter-spacing: 1px;
+  }
+
+  .selected-display .chord-name {
+    display: inline-block;
+    margin-left: 12px;
+    color: #fdd835;
+    font-weight: 700;
+    font-size: 1rem;
+  }
+
+  /* Piano container */
+  .piano-wrapper {
+    position: relative;
+    margin-bottom: 16px;
+    overflow-x: auto;
+    max-width: 100%;
+  }
+
+  .piano {
+    position: relative;
+    display: flex;
+    height: 180px;
+    user-select: none;
+  }
+
+  .key {
+    cursor: pointer;
+    border: 1px solid #333;
+    transition: background 0.08s;
+  }
+
+  .key.white {
+    position: relative;
+    width: 36px;
+    height: 180px;
+    background: linear-gradient(to bottom, #f8f8f8, #e8e8e8);
+    border-radius: 0 0 5px 5px;
+    z-index: 1;
+  }
+
+  .key.white:hover {
+    background: linear-gradient(to bottom, #e0e0e0, #d0d0d0);
+  }
+
+  .key.white.active {
+    background: linear-gradient(to bottom, #81d4fa, #4fc3f7);
+    border-color: #0288d1;
+  }
+
+  .key.white.preview {
+    background: linear-gradient(to bottom, #fff9c4, #fdd835);
+    border-color: #f9a825;
+  }
+
+  .key.white.preview.active {
+    background: linear-gradient(to bottom, #81d4fa, #4fc3f7);
+    border-color: #0288d1;
+  }
+
+  .key.black {
+    position: absolute;
+    width: 24px;
+    height: 115px;
+    background: linear-gradient(to bottom, #222, #111);
+    border-radius: 0 0 4px 4px;
+    z-index: 2;
+  }
+
+  .key.black:hover {
+    background: linear-gradient(to bottom, #444, #333);
+  }
+
+  .key.black.active {
+    background: linear-gradient(to bottom, #0288d1, #01579b);
+    border-color: #4fc3f7;
+  }
+
+  .key.black.preview {
+    background: linear-gradient(to bottom, #f9a825, #f57f17);
+    border-color: #fdd835;
+  }
+
+  .key.black.preview.active {
+    background: linear-gradient(to bottom, #0288d1, #01579b);
+    border-color: #4fc3f7;
+  }
+
+  .key .key-label {
+    position: absolute;
+    bottom: 6px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.65rem;
+    color: #555;
+    pointer-events: none;
+  }
+
+  .key.black .key-label {
+    color: #bbb;
+    font-size: 0.55rem;
+    bottom: 4px;
+  }
+
+  .key.white.active .key-label { color: #01579b; }
+  .key.black.active .key-label { color: #81d4fa; }
+  .key.white.preview.active .key-label { color: #01579b; }
+  .key.black.preview.active .key-label { color: #81d4fa; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+    justify-content: center;
+  }
+
+  button {
+    padding: 8px 16px;
+    border: 1px solid #445;
+    border-radius: 5px;
+    background: #16213e;
+    color: #e0e0e0;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  button:hover { background: #1a3a5c; }
+
+  button.primary {
+    background: #0288d1;
+    border-color: #0288d1;
+    color: #fff;
+    font-weight: 600;
+  }
+
+  button.primary:hover { background: #0277bd; }
+
+  button:disabled { opacity: 0.35; cursor: default; }
+  button:disabled:hover { background: #16213e; }
+  button.primary:disabled:hover { background: #0288d1; }
+
+  button.danger { border-color: #c62828; color: #ef9a9a; }
+  button.danger:hover { background: #3e1010; }
+
+  /* ABC output */
+  .output-section {
+    width: 100%;
+    max-width: 1100px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .output-left {
+    flex: 1;
+    min-width: 0;
+    position: relative;
+  }
+
+  .line-hover {
+    position: absolute;
+    pointer-events: none;
+    background: rgba(79, 195, 247, 0.08);
+    border-radius: 3px;
+    display: none;
+  }
+
+  .nav-arrow {
+    position: absolute;
+    right: 24px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    color: #4fc3f7;
+    cursor: pointer;
+    font-size: 0.7rem;
+    opacity: 0.45;
+    z-index: 3;
+    user-select: none;
+    background: rgba(13, 27, 42, 0.85);
+    border-radius: 3px;
+    padding: 0 4px;
+  }
+  .nav-arrow:hover {
+    opacity: 1;
+  }
+
+  .output-left label {
+    font-size: 0.8rem;
+    color: #888;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .textarea-wrapper {
+    position: relative;
+  }
+
+  #abcHighlight {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #0d1b2a;
+    border: 1px solid #334;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    white-space: pre;
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  #abcHighlight .hl-header { color: #666; }
+  #abcHighlight .hl-chord  { color: #4fc3f7; }
+  #abcHighlight .hl-lyrics { color: #a5d6a7; }
+  #abcHighlight .hl-other  { color: #4fc3f7; }
+
+  #abcHighlight .hl-chord.dimmed  { color: #1e5a73; }
+  #abcHighlight .hl-lyrics.dimmed { color: #3a5e3e; }
+  #abcHighlight .hl-other.dimmed  { color: #1e5a73; }
+
+  textarea {
+    width: 100%;
+    height: 320px;
+    position: relative;
+    background: transparent;
+    color: transparent;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+    font-size: 0.9rem;
+    resize: vertical;
+    line-height: 1.5;
+  }
+
+  textarea { cursor: pointer; }
+  textarea:focus { outline: 2px solid #0288d1; outline-offset: -1px; }
+  textarea::selection { background: rgba(79, 195, 247, 0.1); }
+
+  .output-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    justify-content: flex-end;
+  }
+
+  /* Staff render */
+  .output-right {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .output-right label {
+    font-size: 0.8rem;
+    color: #888;
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  #staffRender {
+    background: #0d1b2a;
+    border: 1px solid #334;
+    border-radius: 6px;
+    padding: 12px;
+    min-height: 200px;
+    overflow-x: auto;
+  }
+
+  #staffRender svg {
+    width: 100% !important;
+  }
+
+  /* Style abcjs SVG for dark theme */
+  #staffRender .abcjs-staff-extra,
+  #staffRender .abcjs-clef,
+  #staffRender .abcjs-key-signature,
+  #staffRender .abcjs-time-signature { fill: #9e9e9e; }
+  #staffRender .abcjs-staff { stroke: #555; }
+  #staffRender .abcjs-note,
+  #staffRender .abcjs-rest,
+  #staffRender .abcjs-beam-elem,
+  #staffRender .abcjs-top-line,
+  #staffRender .abcjs-note_selected { fill: #e0e0e0; stroke: #e0e0e0; }
+  #staffRender .abcjs-bar { stroke: #888; }
+  #staffRender .abcjs-brace { fill: #888; }
+  #staffRender .abcjs-ledger { stroke: #555; }
+  #staffRender .abcjs-chord { fill: #fdd835; }

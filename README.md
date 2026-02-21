@@ -21,7 +21,11 @@ Open `index.html` in any browser. No build step, no dependencies (abcjs is loade
 
 ## Architecture
 
-Everything lives in a single `index.html` — HTML, CSS, and JS are all embedded. The only external dependency is [abcjs](https://www.abcjs.net/) loaded from CDN for staff rendering.
+- `index.html` — markup and structure
+- `style.css` — all styles
+- `app.js` — all application logic
+
+No build step. The only external dependency is [abcjs](https://www.abcjs.net/) loaded from CDN for staff rendering.
 
 ## Technical Details
 
